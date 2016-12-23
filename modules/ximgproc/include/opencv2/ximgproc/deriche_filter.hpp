@@ -34,51 +34,44 @@
  *  the use of this software, even if advised of the possibility of such damage.
  */
 
-#include "precomp.hpp"
-#include <opencv2/ximgproc.hpp>
-#include <opencv2/highgui.hpp>
+#ifndef __OPENCV_DERICHEFILTER_HPP__
+#define __OPENCV_DERICHEFILTER_HPP__
+#ifdef __cplusplus
 
-namespace cv
-{
-namespace ximgproc
-{
-    void rollingGuidanceFilter(InputArray src_, OutputArray dst_, int d,
-                               double sigmaColor, double sigmaSpace,  int numOfIter, int borderType)
-    {
-        CV_Assert(!src_.empty());
+#include <opencv2/core.hpp>
 
-        Mat guidance = src_.getMat();
-        Mat src = src_.getMat();
+namespace cv {
+namespace ximgproc {
 
-        CV_Assert(src.size() == guidance.size());
-        CV_Assert(src.depth() == guidance.depth() && (src.depth() == CV_8U || src.depth() == CV_32F) );
+//! @addtogroup ximgproc_filters
+//! @{
 
-        if (sigmaColor <= 0)
-            sigmaColor = 1;
-        if (sigmaSpace <= 0)
-            sigmaSpace = 1;
+/**
+* @brief   Applies Y Deriche filter to an image.
+*
+* For more details about this implementation, please see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.476.5736&rep=rep1&type=pdf
+*
+* @param   _op         Source 8-bit or 16bit image, 1-channel or 3-channel image.
+* @param   _dst        result CV_32FC image with same number of channel than _op.
+* @param   alphaDerive double see paper
+* @param   alphaMean   double see paper
+*
+*/
+CV_EXPORTS void GradientDericheY(InputArray _op, OutputArray _dst, double alphaDerive,double alphaMean);
+/**
+* @brief   Applies X Deriche filter to an image.
+*
+* For more details about this implementation, please see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.476.5736&rep=rep1&type=pdf
+*
+* @param   _op         Source 8-bit or 16bit image, 1-channel or 3-channel image.
+* @param   _dst        result CV_32FC image with same number of channel than _op.
+* @param   alphaDerive double see paper
+* @param   alphaMean   double see paper
+*
+*/
+CV_EXPORTS void GradientDericheX(InputArray _op, OutputArray _dst, double alphaDerive,double alphaMean);
 
-        dst_.create(src.size(), src.type());
-        Mat dst = dst_.getMat();
-
-        if (src.data == guidance.data)
-            guidance = guidance.clone();
-        if (dst.data == src.data)
-            src = src.clone();
-
-        int srcCnNum = src.channels();
-
-        if (srcCnNum == 1 || srcCnNum == 3)
-        {
-            while(numOfIter--){
-                jointBilateralFilter(guidance, src, guidance, d, sigmaColor, sigmaSpace, borderType);
-            }
-            guidance.copyTo(dst_);
-        }
-        else
-        {
-            CV_Error(Error::BadNumChannels, "Unsupported number of channels");
-        }
-    }
 }
 }
+#endif
+#endif

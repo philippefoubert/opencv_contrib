@@ -11,7 +11,7 @@
  *  Redistribution and use in source and binary forms, with or without modification,
  *  are permitted provided that the following conditions are met :
  *
- *  * Redistributions of source code must retain the above copyright notice,
+ *  *Redistributions of source code must retain the above copyright notice,
  *  this list of conditions and the following disclaimer.
  *
  *  * Redistributions in binary form must reproduce the above copyright notice,
@@ -33,12 +33,11 @@
  *  or tort(including negligence or otherwise) arising in any way out of
  *  the use of this software, even if advised of the possibility of such damage.
  */
-
 #include <opencv2/core.hpp>
 #include <opencv2/core/utility.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/ximgproc.hpp>
-#include "opencv2/ximgproc/paillou_filter.hpp"
+#include "opencv2/ximgproc/deriche_filter.hpp"
 
 using namespace cv;
 using namespace cv::ximgproc;
@@ -46,17 +45,17 @@ using namespace cv::ximgproc;
 #include <iostream>
 using namespace std;
 
-int aa = 100, ww = 10;
-Mat dx, dy;
-UMat img;
-const char* window_name = "Gradient Modulus";
+int alDerive=100;
+int alMean=100;
+Ptr<Mat> img;
+const string & winName = "Gradient Modulus";
 
 static void DisplayImage(Mat x,string s)
 {
 	vector<Mat> sx;
 	split(x, sx);
 	vector<double> minVal(3), maxVal(3);
-	for (int i = 0; i < static_cast<int>(sx.size()); i++)
+	for (size_t i = 0; i < sx.size(); i++)
 	{
 		minMaxLoc(sx[i], &minVal[i], &maxVal[i]);
 	}
@@ -69,39 +68,53 @@ static void DisplayImage(Mat x,string s)
 
 
 /**
- * @function paillouFilter
+ * @function DericheFilter
  * @brief Trackbar callback
  */
-static void PaillouFilter(int, void*)
+static void DericheFilter(int, void*)
 {
     Mat dst;
-    double a=aa/100.0,w=ww/100.0;
+    double d=alDerive/100.0,m=alMean/100.0;
     Mat rx,ry;
-    GradientPaillouX(img,rx,a,w);
-    GradientPaillouY(img,ry,a,w);
+    GradientDericheX(*img.get(),rx,d,m);
+    GradientDericheY(*img.get(),ry,d,m);
     DisplayImage(rx, "Gx");
     DisplayImage(ry, "Gy");
     add(rx.mul(rx),ry.mul(ry),dst);
     sqrt(dst,dst);
-    DisplayImage(dst, window_name );
+    DisplayImage(dst, winName );
 }
-
 
 int main(int argc, char* argv[])
 {
+    Mat *m=new Mat;
+    cv::CommandLineParser parser(argc, argv, "{help h | | show help message}{@input | | input image}");
+    if (parser.has("help"))
+    {
+        parser.printMessage();
+        return -1;
+    }
+    string input_image = parser.get<string>("@input");
+    if (input_image.empty())
+    {
+        parser.printMessage();
+        parser.printErrors();
+        return -2;
+    }
     if (argc==2)
-        imread(argv[1]).copyTo(img);
-    if (img.empty())
+        *m = imread(input_image);
+    if (m->empty())
     {
         cout << "File not found or empty image\n";
+        return -3;
     }
-    imshow("Original",img);
-    namedWindow( window_name, WINDOW_AUTOSIZE );
-
+    imshow("Original", *m);
+    img =Ptr<Mat>(m);
+    namedWindow( winName, WINDOW_AUTOSIZE );
     /// Create a Trackbar for user to enter threshold
-    createTrackbar( "a:",window_name, &aa, 400, PaillouFilter );
-    createTrackbar( "w:", window_name, &ww, 400, PaillouFilter );
-    PaillouFilter(0,NULL);
+    createTrackbar( "Derive:",winName, &alDerive, 400, DericheFilter );
+    createTrackbar( "Mean:", winName, &alMean, 400, DericheFilter );
+    DericheFilter(0,NULL);
     waitKey();
     return 0;
 }
