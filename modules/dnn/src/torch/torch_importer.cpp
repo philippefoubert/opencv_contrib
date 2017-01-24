@@ -49,7 +49,7 @@
 
 namespace cv {
 namespace dnn {
-
+#if defined(ENABLE_TORCH_IMPORTER) && ENABLE_TORCH_IMPORTER
 #include "THDiskFile.h"
 
 #ifdef NDEBUG
@@ -197,7 +197,7 @@ struct TorchImporter : public ::cv::dnn::Importer
 
            if (typeStr == "Double")
                return CV_64F;
-           else if (typeStr == "Float")
+           else if (typeStr == "Float" || typeStr == "Cuda")
                return CV_32F;
            else if (typeStr == "Byte")
                return CV_8U;
@@ -964,6 +964,14 @@ Blob readTorchBlob(const String &filename, bool isBinary)
 
     return importer->tensors.begin()->second;
 }
+#else
 
+Ptr<Importer> createTorchImporter(const String &filename, bool isBinary)
+{
+    CV_Error(Error::StsNotImplemented, "Torch importer is disabled in current build");
+    return Ptr<Importer>();
+}
+
+#endif //defined(ENABLE_TORCH_IMPORTER) && ENABLE_TORCH_IMPORTER
 }
 }

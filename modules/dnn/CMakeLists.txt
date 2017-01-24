@@ -1,15 +1,11 @@
-cmake_minimum_required(VERSION 2.8)
-
-if(APPLE_FRAMEWORK OR WINRT
-    OR AARCH64 # protobuf doesn't know this platform
-)
+if(WINRT)
   ocv_module_disable(dnn)
 endif()
 
 set(the_description "Deep neural network module. It allows to load models from different frameworks and to make forward pass")
 set(OPENCV_MODULE_IS_PART_OF_WORLD OFF)
 
-ocv_add_module(dnn opencv_core opencv_imgproc WRAP python matlab)
+ocv_add_module(dnn opencv_core opencv_imgproc PRIVATE_REQUIRED "${LAPACK_LIBRARIES}" WRAP python matlab)
 ocv_warnings_disable(CMAKE_CXX_FLAGS -Wno-shadow -Wno-parentheses -Wmaybe-uninitialized -Wsign-promo
                                      -Wmissing-declarations -Wmissing-prototypes
 )
@@ -27,6 +23,10 @@ else()
                                        -Wundef -Wtautological-undefined-compare -Wignored-qualifiers -Wextra
                                        -Wunused-function -Wunused-const-variable -Wdeprecated-declarations
   )
+endif()
+
+if(APPLE_FRAMEWORK)
+  ocv_warnings_disable(CMAKE_CXX_FLAGS -Wshorten-64-to-32)
 endif()
 
 if(ANDROID)
