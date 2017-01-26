@@ -1250,13 +1250,6 @@ int estimatePoseBoard(InputArrayOfArrays _corners, InputArray _ids, const Ptr<Bo
     if(objPoints.total() == 0) // 0 of the detected markers in board
         return 0;
 
-    if (_rvec.empty() || _tvec.empty())
-    {
-        _rvec.create(3, 1, CV_64FC1);
-        _tvec.create(3, 1, CV_64FC1);
-        useExtrinsicGuess = false;
-    }
-
     solvePnP(objPoints, imgPoints, _cameraMatrix, _distCoeffs, _rvec, _tvec, useExtrinsicGuess);
 
     // divide by four since all the four corners are concatenated in the array for each marker
@@ -1284,14 +1277,11 @@ Ptr<Board> Board::create(InputArrayOfArrays objPoints, const Ptr<Dictionary> &di
     for (unsigned int i = 0; i < objPoints.total(); i++) {
         std::vector<Point3f> corners;
         Mat corners_mat = objPoints.getMat(i);
-        if(objPoints.type() == CV_32FC1)
-        {
-            CV_Assert(corners_mat.total() == 12);
-        }
-        else
-        {
-            CV_Assert(corners_mat.total() == 4);
-        }
+
+        if(corners_mat.type() == CV_32FC1)
+            corners_mat = corners_mat.reshape(3);
+        CV_Assert(corners_mat.total() == 4);
+
         for (int j = 0; j < 4; j++) {
             corners.push_back(corners_mat.at<Point3f>(j));
         }
