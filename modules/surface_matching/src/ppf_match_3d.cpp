@@ -191,20 +191,9 @@ void PPF3DDetector::computePPFFeatures(const double p1[4], const double n1[4],
     return ;
   }
 
-  /*
-  Tolga Birdal's note:
-  Issues of numerical stability is of concern here.
-  Bertram's suggestion: atan2(a dot b, |axb|)
-  My correction :
-  I guess it should be: angle = atan2(norm(cross(a,b)), dot(a,b))
-  The macro is implemented accordingly.
-  TAngle3 actually outputs in range [0, pi] as
-  Bertram suggests
-  */
-
-  f[0] = TAngle3(n1, d);
-  f[1] = TAngle3(n2, d);
-  f[2] = TAngle3(n1, n2);
+  f[0] = TAngle3Normalized(n1, d);
+  f[1] = TAngle3Normalized(n2, d);
+  f[2] = TAngle3Normalized(n1, n2);
 }
 
 void PPF3DDetector::clearTrainingModels()
@@ -327,7 +316,7 @@ bool PPF3DDetector::matchPose(const Pose3D& sourcePose, const Pose3D& targetPose
   return (phi<this->rotation_threshold && dNorm < this->position_threshold);
 }
 
-void PPF3DDetector::clusterPoses(std::vector<Pose3DPtr> poseList, int numPoses, std::vector<Pose3DPtr> &finalPoses)
+void PPF3DDetector::clusterPoses(std::vector<Pose3DPtr>& poseList, int numPoses, std::vector<Pose3DPtr> &finalPoses)
 {
   std::vector<PoseCluster3DPtr> poseClusters;
 
@@ -645,7 +634,12 @@ void PPF3DDetector::match(const Mat& pc, std::vector<Pose3DPtr>& results, const 
 
     Pose3DPtr pose(new Pose3D(alpha, refIndMax, maxVotes));
     pose->updatePose(rawPose);
-    poseList.push_back(pose);
+    #if defined (_OPENMP)
+    #pragma omp critical
+    #endif
+    {
+      poseList.push_back(pose);
+    }
 
 #if defined (_OPENMP)
     free(accumulator);
