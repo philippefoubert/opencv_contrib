@@ -10,7 +10,7 @@
 //                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2013, OpenCV Foundation, all rights reserved.
+// Copyright (C) 2017, Intel Corporation, all rights reserved.
 // Third party copyrights are property of their respective owners.
 //
 // Redistribution and use in source and binary forms, with or without modification,
@@ -38,33 +38,68 @@
 // the use of this software, even if advised of the possibility of such damage.
 //
 //M*/
-#include "../precomp.hpp"
 
-namespace cv
-{
-namespace dnn
-{
-class BlankLayerImpl : public BlankLayer
-{
-public:
-    BlankLayerImpl(const LayerParams&) {}
+#include "opencv2/core/utility.hpp"
+#include "opencv2/imgproc.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/ximgproc.hpp"
 
-    bool getMemoryShapes(const std::vector<MatShape> &inputs,
-                         const int requiredOutputs,
-                         std::vector<MatShape> &outputs,
-                         std::vector<MatShape> &internals) const
+#include <stdio.h>
+
+using namespace cv;
+using namespace std;
+
+int main( int argc, const char** argv)
+{
+    float alpha = 1.0f;
+    float sigma = 0.02f;
+    int rows0 = 480;
+    int niters = 10;
+    Mat frame, src, dst;
+
+    const char* window_name = "Anisodiff : Exponential Flux";
+
+    VideoCapture cap;
+    if( argc > 1 )
+        cap.open(argv[1]);
+    else
+        cap.open(0);
+
+    if (!cap.isOpened())
     {
-        Layer::getMemoryShapes(inputs, requiredOutputs, outputs, internals);
-        return true;
+        printf("Cannot initialize video capturing\n");
+        return 0;
     }
 
-    void forward(std::vector<Mat*> &inputs, std::vector<Mat> &outputs, std::vector<Mat> &internals) {}
-};
+    // Create a window
+    namedWindow(window_name, 1);
 
-Ptr<BlankLayer> BlankLayer::create(const LayerParams& params)
-{
-    return Ptr<BlankLayer>(new BlankLayerImpl(params));
-}
+    // create a toolbar
+    createTrackbar("No. of time steps", window_name, &niters, 30, 0);
 
-}
+    for(;;)
+    {
+        cap >> frame;
+        if( frame.empty() )
+            break;
+
+        if( frame.rows <= rows0 )
+            src = frame;
+        else
+            resize(frame, src, Size(cvRound(480.*frame.cols/frame.rows), 480));
+
+        float t = (float)getTickCount();
+        ximgproc::anisotropicDiffusion(src, dst, alpha, sigma, niters);
+        t = (float)getTickCount() - t;
+        printf("time: %.1fms\n", t*1000./getTickFrequency());
+        imshow(window_name, dst);
+
+        // Wait for a key stroke; the same function arranges events processing
+        char c = (char)waitKey(30);
+        if(c >= 0)
+            break;
+    }
+
+    return 0;
 }
