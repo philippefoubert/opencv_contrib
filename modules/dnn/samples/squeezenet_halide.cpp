@@ -89,32 +89,26 @@ int main(int argc, char **argv)
     }
 
     resize(img, img, Size(227, 227));                // SqueezeNet v1.1 predict class by 3x227x227 input image.
-    Mat inputBlob = blobFromImage(img, 1.0, false);  // Convert Mat to 4-dimensional batch.
+    Mat inputBlob = blobFromImage(img, 1.0, Size(), Scalar(), false);  // Convert Mat to 4-dimensional batch.
     //! [Prepare blob]
 
     //! [Set input blob]
-    net.setInput(inputBlob);                      // Set the network input.
+    net.setInput(inputBlob);                         // Set the network input.
     //! [Set input blob]
 
     //! [Enable Halide backend]
     net.setPreferableBackend(DNN_BACKEND_HALIDE);    // Tell engine to use Halide where it possible.
     //! [Enable Halide backend]
 
-    //! [Compile Halide pipeline]
-//    net.compileHalide();                             // Compile Halide pipeline.
-    //! [Compile Halide pipeline]
-
     //! [Make forward pass]
-    Mat prob = net.forward("prob");                                   // Compute output.
+    Mat prob = net.forward("prob");                  // Compute output.
     //! [Make forward pass]
 
-    //! [Gather output]
-//    net.getBlob();                  // Gather output of "prob" layer.
-
+    //! [Determine the best class]
     int classId;
     double classProb;
     getMaxClass(prob, &classId, &classProb);         // Find the best class.
-    //! [Gather output]
+    //! [Determine the best class]
 
     //! [Print results]
     std::vector<std::string> classNames = readClassNames();
