@@ -49,12 +49,14 @@ void _createTexture(const String& name, Mat image)
 }
 
 static void _convertRT(InputArray rot, InputArray tvec, Quaternion& q, Vector3& t,
-                       bool invert = false)
+                       bool invert = false, bool init = false)
 {
     CV_Assert(rot.empty() || rot.rows() == 3 || rot.size() == Size(3, 3),
               tvec.empty() || tvec.rows() == 3);
 
-    q = Quaternion::IDENTITY;
+    // make sure the entity is oriented by the OpenCV coordinate conventions
+    // when initialised
+    q = init ? Quaternion(toOGRE) : Quaternion::IDENTITY;
     t = Vector3::ZERO;
 
     if (!rot.empty())
@@ -238,10 +240,10 @@ class WindowSceneImpl : public WindowScene
     Ptr<Rectangle2D> bgplane;
 
     Ogre::RenderTarget* frameSrc;
-
+    Ogre::RenderTarget* depthRTT;
 public:
     WindowSceneImpl(Ptr<Application> app, const String& _title, const Size& sz, int flags)
-        : title(_title), root(app->getRoot())
+        : title(_title), root(app->getRoot()), depthRTT(NULL)
     {
         if (!app->sceneMgr)
         {
@@ -346,7 +348,7 @@ public:
 
         Quaternion q;
         Vector3 t;
-        _convertRT(rot, tvec, q, t);
+        _convertRT(rot, tvec, q, t, false, true);
         SceneNode* node = sceneMgr->getRootSceneNode()->createChildSceneNode(t, q);
         node->attachObject(ent);
     }
@@ -377,7 +379,7 @@ public:
 
         Quaternion q;
         Vector3 t;
-        _convertRT(rot, tvec, q, t);
+        _convertRT(rot, tvec, q, t, false, true);
         SceneNode* node = sceneMgr->getRootSceneNode()->createChildSceneNode(t, q);
         node->attachObject(cam);
 
@@ -400,7 +402,7 @@ public:
 
         Quaternion q;
         Vector3 t;
-        _convertRT(rot, tvec, q, t);
+        _convertRT(rot, tvec, q, t, false, true);
         SceneNode* node = sceneMgr->getRootSceneNode()->createChildSceneNode(t, q);
         node->attachObject(light);
     }
@@ -420,7 +422,7 @@ public:
         SceneNode& node = _getSceneNode(sceneMgr, name);
         Quaternion q;
         Vector3 t;
-        _convertRT(rot, tvec, q, t, invert);
+        _convertRT(rot, tvec, q, t, invert, true);
         node.setOrientation(q);
         node.setPosition(t);
     }
@@ -468,6 +470,38 @@ public:
         cvtColor(out, out, dst_type == CV_8UC3 ? COLOR_RGB2BGR : COLOR_RGBA2BGRA);
     }
 
+    void getDepth(OutputArray depth)
+    {
+        Camera* cam = sceneMgr->getCamera(title);
+        if (!depthRTT)
+        {
+            // render into an offscreen texture
+            // currently this draws everything twice as OGRE lacks depth texture attachments
+            TexturePtr tex = TextureManager::getSingleton().createManual(
+                title + "_Depth", RESOURCEGROUP_NAME, TEX_TYPE_2D, frameSrc->getWidth(),
+                frameSrc->getHeight(), 0, PF_DEPTH, TU_RENDERTARGET);
+            depthRTT = tex->getBuffer()->getRenderTarget();
+            depthRTT->addViewport(cam);
+            depthRTT->setAutoUpdated(false); // only update when requested
+        }
+
+        Mat tmp(depthRTT->getHeight(), depthRTT->getWidth(), CV_16U);
+        PixelBox pb(depthRTT->getWidth(), depthRTT->getHeight(), 1, PF_DEPTH, tmp.ptr());
+        depthRTT->update(false);
+        depthRTT->copyContentsToMemory(pb, pb);
+
+        // convert to NDC
+        double alpha = 2.0/std::numeric_limits<uint16>::max();
+        tmp.convertTo(depth, CV_64F, alpha, -1);
+
+        // convert to linear
+        float n = cam->getNearClipDistance();
+        float f = cam->getFarClipDistance();
+        Mat ndc = depth.getMat();
+        ndc = -ndc * (f - n) + (f + n);
+        ndc = (2 * f * n) / ndc;
+    }
+
     void fixCameraYawAxis(bool useFixed, InputArray _up)
     {
         Vector3 up = Vector3::UNIT_Y;
@@ -488,7 +522,7 @@ public:
         SceneNode* node = cam->getParentSceneNode();
         Quaternion q;
         Vector3 t;
-        _convertRT(rot, tvec, q, t, invert);
+        _convertRT(rot, tvec, q, t, invert, true);
 
         if (!rot.empty())
             node->setOrientation(q);
